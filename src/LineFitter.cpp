@@ -21,10 +21,11 @@ void LineFitter::Fit3DLine(PointCloud& pc)
 		vector<double> yList;
 		for (int j = 0; j < pc.rings.size(); j++)
 		{
-			if (pc.rings[j].points[i].valid)
+			if (pc.rings[j].PointValid(i))
 			{
-				xList.push_back(pc.rings[j].points[i].pos.x());
-				yList.push_back(pc.rings[j].points[i].pos.y());
+				Eigen::Vector2d pt = pc.rings[j].GetPointAligned(i);
+				xList.push_back(pt[0]);
+				yList.push_back(pt[1]);
 				//todo: z
 			}
 		}

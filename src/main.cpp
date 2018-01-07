@@ -13,11 +13,11 @@ int main()
 	pc.Load("/home/roby/tunneldata/yarraValley_scan_1.txt");
 	OutlierRemover::RemoveOutliers(pc);
 
-	LineFitter lf;
-	lf.Fit3DLine(pc);
-
 	ScanMatcher sm;
 	sm.DoRANSAC(pc);
+
+	//LineFitter lf;
+	//lf.Fit3DLine(pc);
 
 	//auto testPoint = Eigen::Vector3d(1000, 0, 0);
 	//cout << lf.CalculateDistance(testPoint) << endl;

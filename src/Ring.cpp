@@ -24,3 +24,29 @@ int Ring::AddPoint(float range, float angle)
 	points.push_back(pt);
 	return pt.valid ? 1 : 0;
 }
+
+Eigen::Vector2d Ring::GetPointAligned(int id)
+{
+	return points[id].pos + moveToBeAligned;
+}
+
+void Ring::GetPointRaw(int id, float& angle, float& range)
+{
+	angle = points[id].angle;
+	range = points[id].range;
+}
+
+int Ring::GetPointCount()
+{
+	return points.size();
+}
+
+bool Ring::PointValid(int id)
+{
+	return points[id].valid;
+}
+
+void Ring::SetPointValidity(int id, bool valid)
+{
+	points[id].valid = valid;
+}

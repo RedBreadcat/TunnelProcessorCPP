@@ -2,6 +2,10 @@
     "files.associations": {
         "atomic": "cpp",
         "typeinfo": "cpp",
-        "*.tcc": "cpp"
+        "*.tcc": "cpp",
+        "thread": "cpp",
+        "array": "cpp",
+        "initializer_list": "cpp",
+        "core": "cpp"
     }
 }

@@ -11,6 +11,7 @@ ScanMatcher::ScanMatcher()
 
 }
 
+//https://en.wikipedia.org/wiki/Random_sample_consensus
 void ScanMatcher::DoRANSAC(PointCloud& pc)
 {
     random_device rd;
@@ -20,37 +21,84 @@ void ScanMatcher::DoRANSAC(PointCloud& pc)
     //For each ring
     for (int i = 0; i < pc.rings.size() - 1; i++)
     {
-        //Select random points
-        vector<int> possibleInliersForTesting;
-        possibleInliersForTesting.reserve(numTestPoints);
-        while (possibleInliersForTesting.size() < numTestPoints)
+        cout << "RING: " << i << endl;
+        int it = 0;
+        double bestError = HUGE_VALF;
+        auto bestAdjustment = Eigen::Vector2d(0, 0);
+        while (it++ < iterations)
         {
-            int pointID = uniformIntegers(rng);
-            bool doesNotContainPoint = find(possibleInliersForTesting.begin(), possibleInliersForTesting.end(), pointID) == possibleInliersForTesting.end();
-            if (pc.rings[i].points[pointID].valid && pc.rings[i + 1].points[pointID].valid && doesNotContainPoint) //If point in this and next ring are valid, and point hasn't been added before
+            //Select random points
+            vector<int> possibleInliersForTesting;
+            possibleInliersForTesting.reserve(numTestPoints);
+            while (possibleInliersForTesting.size() < numTestPoints)
             {
-                possibleInliersForTesting.push_back(pointID);
+                int pointID = uniformIntegers(rng);
+                //If point in this and next ring are valid, and point hasn't been added before
+                //Find statement is equivalent to "does not contain point"
+                if (pc.rings[i].PointValid(pointID) && pc.rings[i + 1].PointValid(pointID) && find(possibleInliersForTesting.begin(), possibleInliersForTesting.end(), pointID) == possibleInliersForTesting.end())
+                {
+                    possibleInliersForTesting.push_back(pointID);
+                }
+            }
+
+            Eigen::Vector2d adjustment = DoICP(pc, i, possibleInliersForTesting);
+            pc.rings[i + 1].moveToBeAligned = adjustment;
+            //cout << "Adjustment: " << adjustment(0) << ", " << adjustment(1) << endl;
+
+            //For every point which isn't in possibleInliersForTesting, see if when transformed they have a small error. If error is small, add to the vector
+            int pointCount = pc.rings[i + 1].GetPointCount();
+            for (int j = 0; j < pointCount; j++)
+            {
+                if (pc.rings[i].PointValid(j) && pc.rings[i + 1].PointValid(j))
+                {
+                    bool doesNotContainPoint = find(possibleInliersForTesting.begin(), possibleInliersForTesting.end(), j) == possibleInliersForTesting.end();  //Slow. Can build up a vector of points in above loop
+                    if (doesNotContainPoint)
+                    {
+                        Eigen::Vector2d alignedPoint = pc.rings[i + 1].GetPointAligned(j);
+                        Eigen::Vector2d refPoint = pc.rings[i].GetPointAligned(j);
+                        double error = sqrt((refPoint[0]-alignedPoint[0])*(refPoint[0]-alignedPoint[0]) + (refPoint[1]-alignedPoint[1])*(refPoint[1]-alignedPoint[1]));
+
+                        if (error < 20)   //If error is small
+                        {
+                            possibleInliersForTesting.push_back(j); //Rather than making an "alsoinliers" vector too, add directly to the possibleInliersForTesting given they'll be combined later anyway
+                        }
+                    }
+                }
+            }
+
+            if (possibleInliersForTesting.size() > 400 + numTestPoints) //400: the minimum number of points required for this model to be considered good
+            {
+                adjustment = DoICP(pc, i, possibleInliersForTesting);    //Make a model using the new set of points with low error
+                pc.rings[i + 1].moveToBeAligned = adjustment;
+
+                //Calculate error of the model against all its points
+                double accumulatedError = 0;
+                for (int j = 0; j < possibleInliersForTesting.size(); j++)
+                {
+                    Eigen::Vector2d alignedPoint = pc.rings[i + 1].GetPointAligned(j);
+                    Eigen::Vector2d refPoint = pc.rings[i].GetPointAligned(j);
+
+                    accumulatedError += sqrt((refPoint[0]-alignedPoint[0])*(refPoint[0]-alignedPoint[0]) + (refPoint[1]-alignedPoint[1])*(refPoint[1]-alignedPoint[1]));
+                }
+
+                double averageError = accumulatedError / possibleInliersForTesting.size();
+                if (averageError < bestError)
+                {
+                    bestAdjustment = adjustment;
+                    bestError = averageError;
+                    cout << "Current best: " << bestError << endl;
+                }
             }
         }
 
-        DoICP(pc, i, possibleInliersForTesting);   //todo: get model from this (the transformation matrix)
-        //for every point which isn't in possibleInliersForTesting, see if when transformed they have a small error. If error is small, add to vector additionalInliers
-        //if additionalInliers.size() > minimum_number_of_points_I_require_for_a_model_to_be_considered_good
-        //{
-            //DoICP with possibleInliersForTesting and additionalInliers
-            //Calculate error of this new transformation matrix against possibleInliersForTesting and additionalInliers
-            //if (error < bestError)
-            //{
-                //bestTransformMatrix = 
-                //bestError = error;  
-            //}
-        //}
+        pc.rings[i + 1].moveToBeAligned = bestAdjustment;
+        cout << "Best adjustment: " << bestAdjustment(0) << ", " << bestAdjustment(1) << endl;
+        cout << "Best error: " << bestError << endl;
     }
-
 }
 
 //https://github.com/ethz-asl/libpointmatcher/blob/master/doc/icpWithoutYaml.md
-void ScanMatcher::DoICP(PointCloud& pc, int ringStart, vector<int> pointIDs)
+Eigen::Vector2d ScanMatcher::DoICP(PointCloud& pc, int ringStart, vector<int> pointIDs)  //Returns the amount that each ring+1 point needs to move to be aligned
 {
     typedef PointMatcher<double> PM;
     typedef PM::DataPoints DP;
@@ -62,14 +110,17 @@ void ScanMatcher::DoICP(PointCloud& pc, int ringStart, vector<int> pointIDs)
 	{
         int pointID = pointIDs[i];
 
-        featuresReference(0, i) = pc.rings[ringStart].points[pointID].pos[0];   //x
-		featuresReference(1, i) = pc.rings[ringStart].points[pointID].pos[1];   //y
-		featuresReference(2, i) = 0;                                            //z (todo)
-        featuresReference(3, i) = 1;                                            //padding in order to make a standard 4x4 transformation matrix
-        featuresNext(0, i) = pc.rings[ringStart + 1].points[pointID].pos[0];    //x
-		featuresNext(1, i) = pc.rings[ringStart + 1].points[pointID].pos[1];    //y
-		featuresNext(2, i) = 0;                                                 //z (todo)
-		featuresNext(3, i) = 1;                                                 //padding
+        Eigen::Vector2d refPt = pc.rings[ringStart].GetPointAligned(pointID);
+        Eigen::Vector2d nextPt = pc.rings[ringStart + 1].GetPointAligned(pointID);  //Note: at this stage, adjustment should be 0,0.
+
+        featuresReference(0, i) = refPt[0]; //x
+		featuresReference(1, i) = refPt[1]; //y
+		featuresReference(2, i) = 0;        //z (todo)
+        featuresReference(3, i) = 1;        //padding in order to make a standard 4x4 transformation matrix
+        featuresNext(0, i) = nextPt[0];
+		featuresNext(1, i) = nextPt[1];
+		featuresNext(2, i) = 0;
+		featuresNext(3, i) = 1;
 	}
 
 
@@ -157,8 +208,10 @@ void ScanMatcher::DoICP(PointCloud& pc, int ringStart, vector<int> pointIDs)
     // Compute the transformation to express data in ref
     PM::TransformationParameters transformationParameters = icp(dpNext, dpRef);
 
+    return Eigen::Vector2d(transformationParameters(0, 3), transformationParameters(1, 3));
 
-    cout << "RING: " << ringStart << ", POINTS: " << pointIDs.size() << endl << transformationParameters << endl << endl;
+
+    //cout << "RING: " << ringStart << ", POINTS: " << pointIDs.size() << endl << transformationParameters << endl << endl;
     //Transform data to express it in terms of ref
     //DP data_out(dpNext);
     //icp.transformations.apply(data_out, transformationParameters);

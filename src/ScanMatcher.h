@@ -8,7 +8,7 @@ public:
     void DoRANSAC(PointCloud& pc);
 
 private:
-    void DoICP(PointCloud& pc, int ringStart, std::vector<int> pointIDs);
-	int iterations = 5;
-    int numTestPoints = 10;
+    Eigen::Vector2d DoICP(PointCloud& pc, int ringStart, std::vector<int> pointIDs);
+	int iterations = 20;
+    int numTestPoints = 100;
 };

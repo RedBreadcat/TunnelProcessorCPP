@@ -14,12 +14,14 @@ void OutlierRemover::RemoveOutliers(PointCloud& pc)
 {
 	for (int i = 0; i < pc.rings.size(); i++)
 	{
-		for (int j = 0; j < pc.rings[i].points.size(); j++)
+		for (int j = 0; j < pc.rings[i].GetPointCount(); j++)
 		{
 			//Remove points if between 81 and 95, -95 and -81, >125 angles. And if range <=2000
-			if (abs(pc.rings[i].points[j].angle) > 81 && abs(pc.rings[i].points[j].angle) < 95 || pc.rings[i].points[j].angle > 125 || pc.rings[i].points[j].range <= 2000)
+			float angle, range;
+			pc.rings[i].GetPointRaw(j, angle, range);
+			if (abs(angle) > 81 && abs(angle) < 95 || angle > 125 || range <= 2000)
 			{
-				pc.rings[i].points[j].valid = false;
+				pc.rings[i].SetPointValidity(j, false);
 			}
 		}
 	}
