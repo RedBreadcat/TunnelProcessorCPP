@@ -1,5 +1,7 @@
 #include "LineFitter.h"
 #include <iostream>
+#include <fstream>
+#include <iomanip>
 
 using namespace std;
 
@@ -82,6 +84,7 @@ bool LineFitter::FitPoints(const std::vector<double> &yAxis, const std::vector<d
 	// You can tune the eps (1e-7) below for your specific task
 	if (std::fabs(denominator) < 1e-7) {
 		cout << "Warning: line vertical" << endl;
+		
 		return false;
 	}
 	slope = (sumXY - sumX * yMean) / denominator;
@@ -103,4 +106,20 @@ double LineFitter::CalculateDistance(Eigen::Vector3d point3D)
 	}
 
 	return shortestDistance;
+}
+
+void LineFitter::SaveLines(string path)
+{
+	ofstream linesFile(path + "_lines.txt");
+
+	for (int i = 0; i < lines.size(); i++)
+	{
+		linesFile << setprecision(10) << lines[i].xLine[0] << endl;	//Intercept
+		linesFile << setprecision(10) << lines[i].xLine[1] << endl;	//t coefficient
+		linesFile << setprecision(10) << lines[i].yLine[0] << endl;	//Intercept
+		linesFile << setprecision(10) << lines[i].yLine[1] << endl;	//t coefficient
+		linesFile << setprecision(10) << lines[i].zLine[0] << endl;	//Intercept
+		linesFile << setprecision(10) << lines[i].zLine[1] << endl;	//t coefficient
+	}
+	linesFile.close();
 }

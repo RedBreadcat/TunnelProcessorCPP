@@ -8,7 +8,6 @@ using namespace std;
 
 ScanMatcher::ScanMatcher()
 {
-
 }
 
 //https://en.wikipedia.org/wiki/Random_sample_consensus
@@ -86,14 +85,13 @@ void ScanMatcher::DoRANSAC(PointCloud& pc)
                 {
                     bestAdjustment = adjustment;
                     bestError = averageError;
-                    cout << "Current best: " << bestError << endl;
                 }
             }
         }
 
         pc.rings[i + 1].moveToBeAligned = bestAdjustment;
-        cout << "Best adjustment: " << bestAdjustment(0) << ", " << bestAdjustment(1) << endl;
-        cout << "Best error: " << bestError << endl;
+        //cout << "Best adjustment: " << bestAdjustment(0) << ", " << bestAdjustment(1) << endl;
+        //cout << "Best error: " << bestError << endl;
     }
 }
 

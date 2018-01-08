@@ -9,7 +9,7 @@ public:
 	PointCloud();
 	~PointCloud();
 	void Load(std::string path);
-
+	void SaveAdjustments(std::string path);
 	std::vector<Ring> rings;
 };
 
