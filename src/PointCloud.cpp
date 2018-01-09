@@ -53,14 +53,16 @@ void PointCloud::SaveAdjustments(string path)
 	for (int i = 0; i < rings.size(); i++)
 	{
 		adjustmentsFile << "RING" << endl;
-		for (int j = 0; j < rings[i].GetPointCount(); i++)
-		{
-			//TODO: Write whether point is valid or not. A bool? The ID? All point IDs, followed by a bool?
-			//Do whatever will give good performance on visualiser side.
-		}
-		cout << "***" << endl;
 		adjustmentsFile << setprecision(10) << rings[i].moveToBeAligned[0] << endl;
 		adjustmentsFile << setprecision(10) << rings[i].moveToBeAligned[1] << endl;
+		for (int j = 0; j < rings[i].GetPointCount(); j++)	//Write the IDs of all the invalid points
+		{
+			if (!rings[i].PointValid(j))
+			{
+				adjustmentsFile << j << endl;
+			}
+		}
 	}
 	adjustmentsFile.close();
+	cout << "Saved adjustments file" << endl;
 }

@@ -122,4 +122,5 @@ void LineFitter::SaveLines(string path)
 		linesFile << setprecision(10) << lines[i].zLine[1] << endl;	//t coefficient
 	}
 	linesFile.close();
+	cout << "Saved lines file" << endl;
 }
