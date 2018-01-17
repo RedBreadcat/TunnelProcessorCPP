@@ -16,13 +16,15 @@ void OutlierRemover::RemoveOutliers(PointCloud& pc)
 	{
 		for (int j = 0; j < pc.rings[i].GetPointCount(); j++)
 		{
-			//Remove points if between 81 and 95, -95 and -81, >125 angles. And if range <=2000 or >5000
+			//Remove points if between 81 and 95, -95 and -81, >125 angles
 			float angle, range;
 			pc.rings[i].GetPointRaw(j, angle, range);
-			if ((abs(angle) > 81 && abs(angle) < 95) || angle > 125 || range <= 2000 || range > 5000)
+			if ((abs(angle) > 81 && abs(angle) < 95) || angle > 125 || range <= 2200 || range > 5600)
 			{
 				pc.rings[i].SetPointValidity(j, false);
 			}
+
+			//todo: remove points if there's a big delta between them and neighbours. But needs to be smarter.
 		}
 	}
 }

@@ -9,6 +9,8 @@ public:
 
 private:
     Eigen::Vector2d DoICP(PointCloud& pc, int ringStart, std::vector<int> pointIDs);
-	int iterations = 20;
+    Eigen::Vector2d DoAlignment(PointCloud& pc, int ringStart, std::vector<int> pointIDs);
+    Eigen::Vector2d DoAlignmentSum(PointCloud& pc, int ringStart, std::vector<int> pointIDs);
+	int iterations = 500;
     int numTestPoints = 100;
 };

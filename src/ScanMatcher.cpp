@@ -18,80 +18,88 @@ void ScanMatcher::DoRANSAC(PointCloud& pc)
     uniform_int_distribution<int> uniformIntegers(0, 1079);
 
     //For each ring
-    for (int i = 0; i < pc.rings.size() - 1; i++)
+    for (int loop = 0; loop < 1; loop++)
     {
-        cout << "RING: " << i << endl;
-        int it = 0;
-        double bestError = HUGE_VALF;
-        auto bestAdjustment = Eigen::Vector2d(0, 0);
-        while (it++ < iterations)
+        for (int i = 0; i < pc.rings.size() - 1; i++)
         {
-            //Select random points
-            vector<int> possibleInliersForTesting;
-            possibleInliersForTesting.reserve(numTestPoints);
-            while (possibleInliersForTesting.size() < numTestPoints)
+            cout << "RING: " << i << " LOOP: " << loop << endl;
+            int it = 0;
+            double bestError = 999999999;
+            double lastBestError = 999999999;
+            auto bestAdjustment = Eigen::Vector2d(0, 0);
+            while (it++ < iterations)
             {
-                int pointID = uniformIntegers(rng);
-                //If point in this and next ring are valid, and point hasn't been added before
-                //Find statement is equivalent to "does not contain point"
-                if (pc.rings[i].PointValid(pointID) && pc.rings[i + 1].PointValid(pointID) && find(possibleInliersForTesting.begin(), possibleInliersForTesting.end(), pointID) == possibleInliersForTesting.end())
+                //Select random points
+                vector<int> possibleInliersForTesting;
+                possibleInliersForTesting.reserve(numTestPoints);
+                while (possibleInliersForTesting.size() < numTestPoints)
                 {
-                    possibleInliersForTesting.push_back(pointID);
-                }
-            }
-
-            Eigen::Vector2d adjustment = DoICP(pc, i, possibleInliersForTesting);
-            pc.rings[i + 1].moveToBeAligned = adjustment;
-            //cout << "Adjustment: " << adjustment(0) << ", " << adjustment(1) << endl;
-
-            //For every point which isn't in possibleInliersForTesting, see if when transformed they have a small error. If error is small, add to the vector
-            int pointCount = pc.rings[i + 1].GetPointCount();
-            for (int j = 0; j < pointCount; j++)
-            {
-                if (pc.rings[i].PointValid(j) && pc.rings[i + 1].PointValid(j))
-                {
-                    bool doesNotContainPoint = find(possibleInliersForTesting.begin(), possibleInliersForTesting.end(), j) == possibleInliersForTesting.end();  //Slow. Can build up a vector of points in above loop
-                    if (doesNotContainPoint)
+                    int pointID = uniformIntegers(rng);
+                    //If point in this and next ring are valid, and point hasn't been added before
+                    //Find statement is equivalent to "does not contain point"
+                    if (pc.rings[i].PointValid(pointID) && pc.rings[i + 1].PointValid(pointID) && find(possibleInliersForTesting.begin(), possibleInliersForTesting.end(), pointID) == possibleInliersForTesting.end())
                     {
-                        Eigen::Vector2d alignedPoint = pc.rings[i + 1].GetPointAligned(j);
-                        Eigen::Vector2d refPoint = pc.rings[i].GetPointAligned(j);
-                        double error = sqrt((refPoint[0]-alignedPoint[0])*(refPoint[0]-alignedPoint[0]) + (refPoint[1]-alignedPoint[1])*(refPoint[1]-alignedPoint[1]));
+                        possibleInliersForTesting.push_back(pointID);
+                    }
+                }
 
-                        if (error < 20)   //If error is small
+                Eigen::Vector2d adjustment = DoAlignment(pc, i, possibleInliersForTesting);
+                pc.rings[i + 1].moveToBeAligned = adjustment;
+                //cout << "Adjustment: " << adjustment(0) << ", " << adjustment(1) << endl;
+
+                //For every point which isn't in possibleInliersForTesting, see if when transformed they have a small error. If error is small, add to the vector
+                int pointCount = pc.rings[i + 1].GetPointCount();
+                for (int j = 0; j < pointCount; j++)
+                {
+                    if (pc.rings[i].PointValid(j) && pc.rings[i + 1].PointValid(j))
+                    {
+                        bool doesNotContainPoint = find(possibleInliersForTesting.begin(), possibleInliersForTesting.end(), j) == possibleInliersForTesting.end();  //Slow. Can build up a vector of points in above loop
+                        if (doesNotContainPoint)
                         {
-                            possibleInliersForTesting.push_back(j); //Rather than making an "alsoinliers" vector too, add directly to the possibleInliersForTesting given they'll be combined later anyway
+                            Eigen::Vector2d alignedPoint = pc.rings[i + 1].GetPointAligned(j);
+                            Eigen::Vector2d refPoint = pc.rings[i].GetPointAligned(j);
+                            double error = sqrt((refPoint[0]-alignedPoint[0])*(refPoint[0]-alignedPoint[0]) + (refPoint[1]-alignedPoint[1])*(refPoint[1]-alignedPoint[1]));
+
+                            if (error < 20)   //If error is small
+                            {
+                                possibleInliersForTesting.push_back(j); //Rather than making an "alsoinliers" vector too, add directly to the possibleInliersForTesting given they'll be combined later anyway
+                            }
                         }
+                    }
+                }
+
+                if (possibleInliersForTesting.size() > 100 + numTestPoints) //100: the minimum number of points required for this model to be considered good
+                {
+                    adjustment = DoAlignment(pc, i, possibleInliersForTesting);    //Make a model using the new set of points with low error
+                    pc.rings[i + 1].moveToBeAligned = adjustment;
+
+                    //Calculate error of the model against all its points
+                    double accumulatedError = 0;
+                    for (int j = 0; j < possibleInliersForTesting.size(); j++)
+                    {
+                        int pointID = possibleInliersForTesting[j];
+                        Eigen::Vector2d alignedPoint = pc.rings[i + 1].GetPointAligned(pointID);
+                        Eigen::Vector2d refPoint = pc.rings[i].GetPointAligned(pointID);
+
+                        accumulatedError += sqrt((refPoint[0]-alignedPoint[0])*(refPoint[0]-alignedPoint[0]) + (refPoint[1]-alignedPoint[1])*(refPoint[1]-alignedPoint[1]));
+                    }
+
+                    double averageError = accumulatedError / possibleInliersForTesting.size();
+                    if (averageError < bestError)
+                    {
+                        bestAdjustment = adjustment;
+                        lastBestError = bestError;
+                        bestError = averageError;
                     }
                 }
             }
 
-            if (possibleInliersForTesting.size() > 400 + numTestPoints) //400: the minimum number of points required for this model to be considered good
-            {
-                adjustment = DoICP(pc, i, possibleInliersForTesting);    //Make a model using the new set of points with low error
-                pc.rings[i + 1].moveToBeAligned = adjustment;
-
-                //Calculate error of the model against all its points
-                double accumulatedError = 0;
-                for (int j = 0; j < possibleInliersForTesting.size(); j++)
-                {
-                    Eigen::Vector2d alignedPoint = pc.rings[i + 1].GetPointAligned(j);
-                    Eigen::Vector2d refPoint = pc.rings[i].GetPointAligned(j);
-
-                    accumulatedError += sqrt((refPoint[0]-alignedPoint[0])*(refPoint[0]-alignedPoint[0]) + (refPoint[1]-alignedPoint[1])*(refPoint[1]-alignedPoint[1]));
-                }
-
-                double averageError = accumulatedError / possibleInliersForTesting.size();
-                if (averageError < bestError)
-                {
-                    bestAdjustment = adjustment;
-                    bestError = averageError;
-                }
-            }
+            pc.rings[i + 1].moveToBeAligned = bestAdjustment;
+            cout << "Best adjustment: " << bestAdjustment(0) << ", " << bestAdjustment(1) << endl;
+            cout << "Best error: " << bestError << endl;
+            cout << "Delta: " << lastBestError - bestError << endl;
+            cout << endl;
         }
-
-        pc.rings[i + 1].moveToBeAligned = bestAdjustment;
-        //cout << "Best adjustment: " << bestAdjustment(0) << ", " << bestAdjustment(1) << endl;
-        //cout << "Best error: " << bestError << endl;
     }
 }
 
@@ -213,4 +221,34 @@ Eigen::Vector2d ScanMatcher::DoICP(PointCloud& pc, int ringStart, vector<int> po
     //Transform data to express it in terms of ref
     //DP data_out(dpNext);
     //icp.transformations.apply(data_out, transformationParameters);
+}
+
+Eigen::Vector2d ScanMatcher::DoAlignment(PointCloud& pc, int ringStart, vector<int> pointIDs) //Returns the amount that each ring+1 point needs to move to be aligned
+{
+    auto alignment = Eigen::Vector2d(0, 0);
+	for (int i = 0; i < pointIDs.size(); i++)
+    {
+        int pointID = pointIDs[i];
+        alignment = alignment + pc.rings[ringStart].GetPointAligned(pointID) - pc.rings[ringStart + 1].GetPointAligned(pointID);
+
+    }
+
+    alignment /= (float)pointIDs.size();
+
+    return alignment;
+}
+
+
+Eigen::Vector2d ScanMatcher::DoAlignmentSum(PointCloud& pc, int ringStart, vector<int> pointIDs) //Returns the amount that each ring+1 point needs to move to be aligned
+{
+    auto totalRef = Eigen::Vector2d(0, 0);
+    auto totalNext = Eigen::Vector2d(0, 0);
+	for (int i = 0; i < pointIDs.size(); i++)
+    {
+        int pointID = pointIDs[i];
+        totalRef += pc.rings[ringStart].GetPointAligned(pointID);
+        totalNext += pc.rings[ringStart + 1].GetPointAligned(pointID);
+    }
+
+    return (totalRef - totalNext) / (float)pointIDs.size();
 }
