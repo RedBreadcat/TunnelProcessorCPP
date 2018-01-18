@@ -8,9 +8,8 @@ public:
     void DoRANSAC(PointCloud& pc);
 
 private:
-    Eigen::Vector2d DoICP(PointCloud& pc, int ringStart, std::vector<int> pointIDs);
-    Eigen::Vector2d DoAlignment(PointCloud& pc, int ringStart, std::vector<int> pointIDs);
-    Eigen::Vector2d DoAlignmentSum(PointCloud& pc, int ringStart, std::vector<int> pointIDs);
-	int iterations = 500;
-    int numTestPoints = 100;
+    Eigen::Vector2d DoAlignmentCentroid(PointCloud& pc, int ringStart, const std::vector<int>& pointIDs);
+	float CalcError(PointCloud& pc, int ringStart, int pointID);
+	int iterations = 200;
+    int numTestPoints = 200;
 };

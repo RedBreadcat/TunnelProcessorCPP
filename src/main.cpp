@@ -8,11 +8,11 @@ using namespace std;
 
 int main()
 {
-	string pathWithoutExtension = "/home/roby/tunneldata/yarraValley_scan_1";
+	string pathWithoutExtension = "C:\\Users\\Roby\\OneDrive\\Documents\\Tunnel\\Data\\yarraValley_scan_1";
 	PointCloud pc;
 
 	pc.Load(pathWithoutExtension + ".txt");
-	OutlierRemover::RemoveOutliers(pc);
+	OutlierRemover::RemoveOutliersBasedOnRaw(pc);
 
 	ScanMatcher sm;
 	sm.DoRANSAC(pc);
@@ -20,11 +20,12 @@ int main()
 	LineFitter lf;
 	lf.Fit3DLine(pc);
 
+	//Note: is too strict
+	//OutlierRemover::RemoveOutliersBasedOnLines(pc, lf);
+
 	pc.SaveAdjustments(pathWithoutExtension);
 	lf.SaveLines(pathWithoutExtension);
 
-	//auto testPoint = Eigen::Vector3d(1000, 0, 0);
-	//cout << lf.CalculateDistance(testPoint) << endl;
-
+	getchar();
 	return 0;
 }

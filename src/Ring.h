@@ -7,16 +7,15 @@ class Ring
 public:
 	Ring();
 	~Ring();
-	int AddPoint(float range, float angle);
-	Eigen::Vector2d GetPointAligned(int id);
+	void AddPoint(float range, float angle);
+	Eigen::Vector2d GetPointAligned(int id) const;
+	int GetClosestPoint(int pointID, const Ring& compareRing, float& shortestDistance);
 	void GetPointRaw(int id, float& angle, float& range);
 	int GetPointCount();
 	bool PointValid(int id);
 	void SetPointValidity(int id, bool valid);
 
 	Eigen::Vector2d moveToBeAligned;
-
-private:
 	std::vector<Point> points;
 };
 

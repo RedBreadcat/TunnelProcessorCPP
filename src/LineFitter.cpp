@@ -97,7 +97,7 @@ double LineFitter::CalculateDistance(Eigen::Vector3d point3D)
 	double shortestDistance = HUGE_VALF;
 	for (int i = 0; i < lines.size(); i++)
 	{
-		double distance = lines[i].CalculateDistance(point3D);
+		double distance = lines[i].CalculateDistanceFast(point3D);
 
 		if (distance < shortestDistance)
 		{

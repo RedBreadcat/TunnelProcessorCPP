@@ -1,5 +1,6 @@
 #pragma once
 #include "PointCloud.h"
+#include "LineFitter.h"
 
 class OutlierRemover
 {
@@ -7,6 +8,7 @@ public:
 	OutlierRemover();
 	~OutlierRemover();
 
-	static void RemoveOutliers(PointCloud& pc);
+	static void RemoveOutliersBasedOnRaw(PointCloud& pc);
+	static void RemoveOutliersBasedOnLines(PointCloud& pc, LineFitter& lf);
 };
 

@@ -30,3 +30,15 @@ double Line::CalculateDistance(Eigen::Vector3d point3D)
 
 	return sqrt(pow(point3D[0] - qx, 2) + pow(point3D[1] - qy, 2) + pow(point3D[2] - qz, 2));
 }
+
+//Based on assumption that Z is directly tied to t, therefore no solving is necessary
+float Line::CalculateDistanceFast(Eigen::Vector3d point3D)
+{
+	int t = (int)point3D[2];
+
+	float qx = xLine[0] + xLine[1] * t;
+	float qy = yLine[0] + yLine[1] * t;
+	float qz = zLine[0] + zLine[1] * t;
+
+	return sqrt(pow(point3D[0] - qx, 2) + pow(point3D[1] - qy, 2) + pow(point3D[2] - qz, 2));
+}

@@ -55,9 +55,18 @@ void PointCloud::SaveAdjustments(string path)
 		adjustmentsFile << "RING" << endl;
 		adjustmentsFile << setprecision(10) << rings[i].moveToBeAligned[0] << endl;
 		adjustmentsFile << setprecision(10) << rings[i].moveToBeAligned[1] << endl;
-		for (int j = 0; j < rings[i].GetPointCount(); j++)	//Write the IDs of all the invalid points
+		int pointCount = rings[i].GetPointCount();
+		for (int j = 0; j < pointCount; j++)	//Write the IDs of all the invalid points
 		{
 			if (!rings[i].PointValid(j))
+			{
+				adjustmentsFile << j << endl;
+			}
+		}
+		adjustmentsFile << "RANSAC" << endl;
+		for (int j = 0; j < pointCount; j++)
+		{
+			if (rings[i].points[j].pickedForRANSAC)
 			{
 				adjustmentsFile << j << endl;
 			}

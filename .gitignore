@@ -9,3 +9,12 @@ compile_commands.json
 CTestTestfile.cmake
 tunnelproc
 tunnelprocdebug
+Debug/
+Release/
+.vs/
+tunnelproc.dir/
+RelWithDebInfo/
+*.vcxproj
+*.filters
+*.user
+*.sln
