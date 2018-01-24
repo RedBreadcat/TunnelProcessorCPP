@@ -25,7 +25,7 @@ void LineFitter::Fit3DLine(PointCloud& pc)
 		{
 			if (pc.rings[j].PointValid(i))
 			{
-				Eigen::Vector2d pt = pc.rings[j].GetPointAligned(i);
+				Eigen::Vector2d pt = pc.rings[j].GetPointRotated(i);
 				xList.push_back(pt[0]);
 				yList.push_back(pt[1]);
 				//todo: z

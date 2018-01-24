@@ -27,8 +27,28 @@ void OutlierRemover::RemoveOutliersBasedOnRaw(PointCloud& pc)
 			{
 				pc.rings[i].SetPointValidity(j, false);
 			}
+		}
+	}
 
-			//todo: remove points if there's a big delta between them and neighbours. But needs to be smarter.
+	for (int i = 1; i < pc.rings.size() - 1; i++)
+	{
+		int pointCount = pc.rings[i].GetPointCount();
+
+		//If there's a big gap between a point and its neighbours, and everything's valid, make it invalid
+		for (int j = 0; j < pointCount; j++)
+		{
+			//if (pc.rings[i].PointValid(j - 1) && pc.rings[i].PointValid(j) && pc.rings[i].PointValid(j + 1))
+			{
+				float angle, range, rangeBefore, rangeAfter;
+				pc.rings[i].GetPointRaw(j, angle, range);
+				pc.rings[i - 1].GetPointRaw(j, angle, rangeBefore);
+				pc.rings[i + 1].GetPointRaw(j, angle, rangeAfter);
+
+				if (abs(range - rangeBefore) > 100 && abs(range - rangeAfter) > 100)
+				{
+					pc.rings[i].SetPointValidity(j, false);
+				}
+			}
 		}
 	}
 }
