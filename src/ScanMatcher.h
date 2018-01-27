@@ -8,9 +8,9 @@ public:
     void DoRANSAC(PointCloud& pc);
 
 private:
-    Eigen::Vector2d DoAlignmentCentroid(PointCloud& pc, int ringStart, const std::vector<int>& pointIDs);
+	void DoAlignment(PointCloud& pc, int ringStart, const std::vector<int>& pointIDs, Eigen::Vector2d& t, float& r);
 	float CalcError(PointCloud& pc, int ringStart, int pointID);
-	float CalcErrorRot(PointCloud& pc, int ringStart, int pointID);
+	void TestAlignment(PointCloud& pc);
 	int iterations = 200;
     int numTestPoints = 200;
 };

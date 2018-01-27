@@ -21,7 +21,8 @@ void ScanMatcher::DoRANSAC(PointCloud& pc)
 		int it = 0;
 		double bestError = HUGE_VALF;
 		double lastBestError = HUGE_VALF;
-		auto bestAdjustment = Eigen::Vector2d(0, 0);
+		auto bestTranslation = Eigen::Vector2d(0, 0);
+		float bestRotation = 0;
 		while (it++ < iterations)
 		{
 			//Select random points
@@ -38,8 +39,11 @@ void ScanMatcher::DoRANSAC(PointCloud& pc)
 				}
 			}
 
-			Eigen::Vector2d adjustment = DoAlignmentCentroid(pc, i, possibleInliersForTesting);
-			pc.rings[i + 1].moveToBeAligned = adjustment;
+			Eigen::Vector2d translation;
+			float rotation;
+			DoAlignment(pc, i, possibleInliersForTesting, translation, rotation);
+			pc.rings[i + 1].translation = translation;
+			pc.rings[i + 1].rotation = rotation;
 
 			//Calculate error of the model against all points
 			int pointCount = pc.rings[i].GetPointCount();
@@ -52,87 +56,50 @@ void ScanMatcher::DoRANSAC(PointCloud& pc)
 			double averageError = accumulatedError / possibleInliersForTesting.size();
 			if (averageError < bestError)
 			{
-				bestAdjustment = adjustment;
+				bestTranslation = translation;
+				bestRotation = rotation;
 				lastBestError = bestError;
 				bestError = averageError;
 			}
 		}
 
-		pc.rings[i + 1].moveToBeAligned = bestAdjustment;
+		pc.rings[i + 1].translation = bestTranslation;
+		pc.rings[i + 1].rotation = bestRotation;
 		cout << "Ring: " << i << endl;
-		cout << "Best adjustment: " << bestAdjustment(0) << ", " << bestAdjustment(1) << endl;
+		cout << "Best translation: " << bestTranslation(0) << ", " << bestTranslation(1) << endl;
+		cout << "Best rotation: " << bestRotation * 180 / boost::math::constants::pi<float>() << " degrees" << endl;
 		cout << "Best error: " << bestError << endl;
 		cout << "Delta: " << lastBestError - bestError << endl;
 		cout << endl;
 	}
-
-	/*
-	//Rotation
-	uniform_real_distribution<float> uniformFloats(-boost::math::constants::pi<float>() / 32.0f, boost::math::constants::pi<float>() / 32.0f);
-	for (int i = 0; i < pc.rings.size() - 1; i++)
-	{
-		int it = 0;
-		double bestError = HUGE_VALF;
-		double lastBestError = HUGE_VALF;
-		float bestAngle = 0;
-		while (it++ < iterations)
-		{
-			//Select random points
-			vector<int> possibleInliersForTesting;
-			possibleInliersForTesting.reserve(numTestPoints);
-			while (possibleInliersForTesting.size() < numTestPoints)
-			{
-				int pointID = uniformIntegers(rng);
-				//If point in this and next ring are valid, and point hasn't been added before
-				//Find statement is equivalent to "does not contain point"
-				if (pc.rings[i].PointValid(pointID) && pc.rings[i + 1].PointValid(pointID) && find(possibleInliersForTesting.begin(), possibleInliersForTesting.end(), pointID) == possibleInliersForTesting.end())
-				{
-					possibleInliersForTesting.push_back(pointID);
-				}
-			}
-
-			float angle = it == 1 ? pc.rings[i].angle : uniformFloats(rng);	//If on first iteration (usually it==0 but we've already increased it by this point), then compare to previous rotation
-			pc.rings[i + 1].angle = angle;
-
-			//Calculate error of the model against all points
-			int pointCount = pc.rings[i].GetPointCount();
-			double accumulatedError = 0;
-			for (int j = 0; j < pointCount; j++)
-			{
-				accumulatedError += CalcErrorRot(pc, i, j);
-			}
-
-			double averageError = accumulatedError / possibleInliersForTesting.size();
-			if (averageError < bestError)
-			{
-				bestAngle = angle;
-				lastBestError = bestError;
-				bestError = averageError;
-			}
-		}
-
-		pc.rings[i + 1].angle = bestAngle;
-		cout << "Ring: " << i << endl;
-		cout << "Best angle: " << bestAngle << endl;
-		cout << "Best error: " << bestError << endl;
-		cout << "Delta: " << lastBestError - bestError << endl;
-		cout << endl;
-	}*/
 }
 
-Eigen::Vector2d ScanMatcher::DoAlignmentCentroid(PointCloud& pc, int ringStart, const vector<int>& pointIDs) //Returns the amount that each ring+1 point needs to move to be aligned
+//http://nghiaho.com/?page_id=671
+void ScanMatcher::DoAlignment(PointCloud& pc, int ringStart, const vector<int>& pointIDs, Eigen::Vector2d& t, float& r) //RefReturns the amount that each ring+1 point needs to move to be aligned
 {
-    auto centroidRef = Eigen::Vector2d(0, 0);
-    auto centroidNext = Eigen::Vector2d(0, 0);
+	auto centroidNext = Eigen::Vector2d(0, 0);
+	auto centroidRef = Eigen::Vector2d(0, 0);
 	for (int i = 0; i < pointIDs.size(); i++)
-    {
-        int pointID = pointIDs[i];
-        centroidRef += pc.rings[ringStart].GetPointAligned(pointID);
-        centroidNext += pc.rings[ringStart + 1].GetPointAligned(pointID);
-    }
+	{
+		centroidRef += pc.rings[ringStart].GetPointAligned(pointIDs[i]);	//Remember that current ring must be aligned
+		centroidNext += pc.rings[ringStart + 1].GetPoint(pointIDs[i]);
+	}
 	centroidRef /= (float)pointIDs.size();
 	centroidNext /= (float)pointIDs.size();
-	return centroidRef - centroidNext;
+
+	Eigen::Matrix2d h;
+	for (int i = 0; i < pointIDs.size(); i++)
+	{
+		Eigen::Matrix<double, 1, 2> ptRefT = (pc.rings[ringStart].GetPointAligned(pointIDs[i]) - centroidRef).transpose();	//Aligned
+
+		h += (pc.rings[ringStart + 1].GetPoint(pointIDs[i]) - centroidNext) * ptRefT;
+	}
+
+	Eigen::JacobiSVD<Eigen::Matrix2d> usv = h.jacobiSvd(Eigen::DecompositionOptions::ComputeThinU | Eigen::DecompositionOptions::ComputeThinV);	//U and V aren't calculated by default
+
+	auto rotationM = usv.matrixV() * usv.matrixU().transpose();	//Produces a 2D rotation matrix
+	r = -acos(rotationM(0, 0));	//Extract rotation from matrix
+	t = -rotationM * centroidNext + centroidRef;
 }
 
 float ScanMatcher::CalcError(PointCloud& pc, int ringStart, int pointID)
@@ -142,9 +109,24 @@ float ScanMatcher::CalcError(PointCloud& pc, int ringStart, int pointID)
 	return error;
 }
 
-float ScanMatcher::CalcErrorRot(PointCloud& pc, int ringStart, int pointID)
+void ScanMatcher::TestAlignment(PointCloud& pc)
 {
-	float error;
-	pc.rings[ringStart].GetClosestPointRot(pointID, pc.rings[ringStart + 1], error);
-	return error;
+	pc.rings[0].points[0].pos = Eigen::Vector2d(0, 1);
+	pc.rings[0].points[1].pos = Eigen::Vector2d(0, -1);
+	pc.rings[0].points[2].pos = Eigen::Vector2d(1, 1);
+
+	pc.rings[1].points[0].pos = Eigen::Vector2d(0, 1) + Eigen::Vector2d(1, 1);
+	pc.rings[1].points[1].pos = Eigen::Vector2d(0, -1) + Eigen::Vector2d(1, 1);
+	pc.rings[1].points[2].pos = Eigen::Vector2d(1, 1) + Eigen::Vector2d(1, 1);
+
+	vector<int> points;
+	points.push_back(0);
+	points.push_back(1);
+	points.push_back(2);
+
+	Eigen::Vector2d t;
+	float r;
+	DoAlignment(pc, 0, points, t, r);
+	cout << t(0) << ", " << t(1) << endl;
+	cout << r << endl;
 }
