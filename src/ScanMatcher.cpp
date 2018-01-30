@@ -14,7 +14,7 @@ void ScanMatcher::DoRANSAC(PointCloud& pc)
 {
     random_device rd;
     mt19937 rng(rd());
-    uniform_int_distribution<int> uniformIntegers(0, 1079);	//1079
+    uniform_int_distribution<int> uniformIntegers(PointCloud::pointStartAdd, 1079 - PointCloud::pointEndSub);
 
 	for (int i = 0; i < pc.rings.size() - 1; i++)
 	{
@@ -46,9 +46,9 @@ void ScanMatcher::DoRANSAC(PointCloud& pc)
 			pc.rings[i + 1].rotation = rotation;
 
 			//Calculate error of the model against all points
-			int pointCount = pc.rings[i].GetPointCount();
+			int pointCount = pc.rings[i].GetPointCount() - PointCloud::pointEndSub;
 			double accumulatedError = 0;
-			for (int j = 0; j < pointCount; j++)
+			for (int j = PointCloud::pointStartAdd; j < pointCount; j++)
 			{
 				accumulatedError += CalcError(pc, i, j);
 			}

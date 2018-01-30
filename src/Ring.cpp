@@ -1,4 +1,5 @@
 #include "Ring.h"
+#include "PointCloud.h"
 #include <boost/math/constants/constants.hpp>
 #include <iostream>
 
@@ -44,15 +45,15 @@ Eigen::Vector2d Ring::GetPointAligned(int id) const
 
 int Ring::GetClosestPoint(int pointID, const Ring& compareRing, float& shortestDistance)
 {
-	int startID = pointID - 10;	//Only going to look for the closest point within a small point ID range
-	if (startID < 0)
+	int startID = pointID - 50;	//Only going to look for the closest point within a small point ID range
+	if (startID < PointCloud::pointStartAdd)
 	{
-		startID = 0;
+		startID = PointCloud::pointStartAdd;
 	}
-	int endID = pointID + 10;
-	if (endID > points.size())
+	int endID = pointID + 50;
+	if (endID > points.size() - PointCloud::pointEndSub)
 	{
-		endID = points.size();
+		endID = points.size() - PointCloud::pointEndSub;
 	}
 
 	shortestDistance = HUGE_VALF;
@@ -62,7 +63,7 @@ int Ring::GetClosestPoint(int pointID, const Ring& compareRing, float& shortestD
 	{
 		Eigen::Vector2d otherPoint = compareRing.GetPointAligned(p);
 
-		double distance = sqrt((refPoint[0] - otherPoint[0])*(refPoint[0] - otherPoint[0]) + (refPoint[1] - otherPoint[1])*(refPoint[1] - otherPoint[1]));
+		double distance = (refPoint[0] - otherPoint[0])*(refPoint[0] - otherPoint[0]) + (refPoint[1] - otherPoint[1])*(refPoint[1] - otherPoint[1]);
 
 		if (distance < shortestDistance)
 		{
@@ -70,6 +71,8 @@ int Ring::GetClosestPoint(int pointID, const Ring& compareRing, float& shortestD
 			closestPointID = p;
 		}
 	}
+
+	shortestDistance = sqrt(shortestDistance);
 
 	if (closestPointID == -1)
 	{

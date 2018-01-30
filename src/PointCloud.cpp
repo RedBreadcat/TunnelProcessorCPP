@@ -6,8 +6,14 @@
 
 using namespace std;
 
+//Static varables must be defined
+int PointCloud::pointStartAdd;
+int PointCloud::pointEndSub;
+
 PointCloud::PointCloud()
 {
+	pointStartAdd = 50;
+	pointEndSub = 50;
 }
 
 
